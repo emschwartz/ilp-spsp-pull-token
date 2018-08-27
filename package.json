@@ -1,0 +1,32 @@
+{
+  "name": "ace",
+  "version": "0.1.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "prepare": "tsc",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Evan Schwartz <evan@ripple.com>",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@types/koa": "^2.0.46",
+    "@types/koa-bodyparser": "^5.0.1",
+    "@types/koa-router": "^7.0.31",
+    "@types/node": "^10.9.1",
+    "@types/node-fetch": "^2.1.2",
+    "bignumber.js": "^7.2.1",
+    "ilp-plugin": "^3.1.1",
+    "ilp-protocol-stream": "^1.5.3",
+    "koa": "^2.5.2",
+    "koa-bodyparser": "^4.2.1",
+    "koa-router": "^7.4.0",
+    "macaroon": "^3.0.1",
+    "node-fetch": "^2.2.0"
+  },
+  "devDependencies": {
+    "ts-node": "^7.0.1",
+    "typescript": "^3.0.1"
+  }
+}
