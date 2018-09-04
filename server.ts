@@ -1,11 +1,12 @@
-import { createServer, Connection } from 'ilp-protocol-stream'
+import { createServer, Connection, Server as StreamServer } from 'ilp-protocol-stream'
 const createPlugin = require('ilp-plugin')
 import Koa = require('koa')
 import Router = require('koa-router')
-import BodyParser = require('koa-bodyparser')
-import { IlpMacaroon } from './macaroon'
+import bodyParser = require('koa-bodyparser')
+import { SpspToken, AmountCaveat, AddressCaveat } from './spsp-token'
 import { randomBytes, createHmac } from 'crypto'
 import fetch from 'node-fetch'
+const createLogger = require('ilp-logger')
 
 // TODO replace this with a more sensible default. This is VERY DANGEROUS
 const MAX_SEND_AMOUNT = 9999999999
@@ -16,109 +17,101 @@ function deriveKey(masterKey: Buffer, keyId: Buffer): Buffer {
   return hmac.digest()
 }
 
-async function run(masterKey = randomBytes(32), port = 3000) {
-  const streamServerSecret = deriveKey(masterKey, Buffer.from('ilp stream server secret'))
-  const macaroonSecret = deriveKey(masterKey, Buffer.from('ilp macaroon secret'))
+export class SpspTokenServer {
+  private streamServerSecret: Buffer
+  private tokenSecret: Buffer
+  private plugin: Plugin
+  private streamServer: StreamServer
+  private app: Koa
+  private location: string
+  private log: any
 
-  function createMacaroon(opts: { amount: string, address?: string, expiry?: Date, location?: string }): IlpMacaroon {
-    const identifier = randomBytes(16)
-    const rootKey = deriveKey(macaroonSecret, identifier)
-    const macaroon = new IlpMacaroon({
-      identifier,
-      location: opts.location || '',
-      rootKey
+  constructor({masterSecret = randomBytes(32), plugin = createPlugin(), location = 'http://localhost:3000'}) {
+    this.log = createLogger('ilp-spsp-token-server')
+    this.streamServerSecret = deriveKey(masterSecret, Buffer.from('ilp stream server secret'))
+    this.tokenSecret = deriveKey(masterSecret, Buffer.from('ilp token secret'))
+    this.location = location
+    this.streamServer = new StreamServer({
+      plugin,
+      serverSecret: this.streamServerSecret
     })
-    if (opts.address) {
-      macaroon.setAddress(opts.address)
-    }
-    if (opts.amount) {
-      macaroon.setAmount(opts.amount)
-    }
-    if (opts.expiry) {
-      macaroon.setExpiry(opts.expiry)
-    }
-
-    return macaroon
+    this.streamServer.on('connection', (conn: Connection) => this.handleConnection(conn))
+    this.app = new Koa()
+    const router = new Router()
+    router.post('/', this.middleware())
+    this.app.use(bodyParser({}))
+    this.app.use(router.routes())
+    this.app.use(router.allowedMethods())
   }
-  const testMacaroon = createMacaroon({
-    amount: '100',
-    address: 'private.moneyd.',
-    expiry: new Date(Date.now() + 30000),
-    location: 'http://localhost:3000'
-  })
 
-  // TODO track how much has been spent from each macaroon
-  // TODO make sure that multiple concurrent requests can't take too much money
-  const macaroons: { [key: string]: IlpMacaroon } = {}
+  async connect() {
+    await this.streamServer.listen()
+  }
 
-  console.log('Connecting to ILP plugin...')
-  const streamServer = await createServer({
-    plugin: createPlugin(),
-    serverSecret: streamServerSecret
-  })
-  streamServer.on('connection', (conn: Connection) => {
+  async listen(port = 3000) {
+    await this.connect()
+    this.app.listen(port)
+  }
+
+  middleware(): Koa.Middleware {
+    return async (ctx: Koa.Context) => {
+      let token
+      try {
+        const body = ctx.request.body! as any
+        const tokenBinary = Buffer.from(body.token, 'base64')
+        token = SpspToken.fromBytes(tokenBinary)
+        if (!token.isValid(this.tokenSecret)) {
+          return ctx.throw(401, 'Invalid token')
+        }
+      } catch (err) {
+        return ctx.throw(400, err.message)
+      }
+
+      const tokenId = token.keyId.toString('hex')
+      // tokens[tokenId] = token
+
+      const { destinationAccount, sharedSecret } = this.streamServer.generateAddressAndSecret(tokenId)
+      this.log.info(`Generated ILP address ${destinationAccount} for token with id: ${token.keyId.toString('hex')}`)
+      ctx.body = {
+        destination_account: destinationAccount,
+        shared_secret: sharedSecret.toString('base64')
+      }
+    }
+  }
+
+  generateToken(): SpspToken {
+    return new SpspToken({
+      location: this.location,
+      rootKey: this.tokenSecret
+    })
+  }
+
+  private async handleConnection(conn: Connection): Promise<void> {
     if (!conn.connectionTag) {
       return conn.end()
     }
+    this.log.debug(`Got connection for token: ${conn.connectionTag}`)
 
-    // Check that we have a macaroon that corresponds to this connection
-    const macaroon = macaroons[conn.connectionTag]
-    if (!macaroon) {
-      return conn.end()
-    }
+    // Check that we have a token that corresponds to this connection
+    // const token = tokens[conn.connectionTag]
+    // if (!token) {
+    //   return conn.end()
+    // }
 
-    // Check if the macaroon is valid
-    if (macaroon.isExpired()) {
-      return conn.end()
-    }
-    // TODO make the Connection expose the destinationAccount
-    if (macaroon.address && (!conn['destinationAccount'] || !conn['destinationAccount']!.startsWith(macaroon.address))) {
-      return conn.end()
-    }
+    // Only necessary because of the stream server pushing money bug
+    // this should be connected and ready to go when the event is fired
+    await conn.connect()
 
-    // Send the amount of money determined by the
+    // TODO should the server create the stream? or should the client create it and ask for a specific amount of money?
     const stream = conn.createStream()
-    // TODO don't send more than there is left for the macaroon
-    stream.setSendMax(macaroon.amount || MAX_SEND_AMOUNT)
-  })
+    stream.on('outgoing_money', (amount: string) => {
+      this.log.debug(`Sent ${amount} to ${conn.destinationAccount} for token: ${conn.connectionTag}`)
+      // TODO adjust how much more the token can send
+    })
 
-  const app = new Koa()
-  const router = new Router()
-  router.post('/', async (ctx: Koa.Context) => {
-    let macaroon
-    try {
-      const body = ctx.request.body! as any
-      const macaroonBinary = Buffer.from(body.macaroon, 'hex')
-      macaroon = IlpMacaroon.fromBinary(macaroonBinary)
-      const rootKey = deriveKey(macaroonSecret, macaroon.identifier)
-      macaroon.verify(rootKey)
-    } catch (err) {
-      return ctx.throw(400, err.message)
-    }
-
-    const macaroonId = macaroon.identifier.toString('hex')
-    macaroons[macaroonId] = macaroon
-
-    const { destinationAccount, sharedSecret } = streamServer.generateAddressAndSecret(macaroonId)
-    ctx.body = {
-      destinationAccount,
-      sharedSecret: sharedSecret.toString('hex')
-    }
-  })
-  app.use(BodyParser({}))
-  app.use(router.routes())
-  app.use(router.allowedMethods())
-  app.listen(port)
-  console.log(`Macaroon server listening on port: ${port}`)
-
-  const response = await fetch('http://localhost:3000', {
-    method: 'POST',
-    body: JSON.stringify({
-      macaroon: testMacaroon.exportBinary().toString('hex')
-    }),
-    headers: { 'Content-Type': 'application/json' }
-  })
-  console.log('response was:', await response.json())
+    // TODO base the amount on the token max
+    stream.setSendMax(MAX_SEND_AMOUNT)
+    await stream.sendTotal(1000)
+    console.log('sent money')
+  }
 }
-
-run().catch(err => console.log(err))
