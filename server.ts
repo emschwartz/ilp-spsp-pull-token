@@ -26,9 +26,10 @@ export class SpspTokenServer {
   private app: Koa
   private location: string
   private log: any
+  private tokenManager: TokenManager
 
   constructor({masterSecret = randomBytes(32), plugin = createPlugin(), location = 'http://localhost:3000'}) {
-    this.log = createLogger('ilp-spsp-token-server')
+    this.log = createLogger('ilp-spsp-pull-token:server')
     this.streamServerSecret = deriveKey(masterSecret, Buffer.from('ilp stream server secret'))
     this.tokenSecret = deriveKey(masterSecret, Buffer.from('ilp token secret'))
     this.location = location
@@ -36,12 +37,14 @@ export class SpspTokenServer {
       plugin,
       serverSecret: this.streamServerSecret
     })
-    this.streamServer.on('connection', (conn: Connection) => this.handleConnection(conn))
+    this.streamServer.on('connection', (conn: Connection) => this.tokenManager.handleConnection(conn))
     this.app = new Koa()
     const router = new Router()
     router.get('/', this.middleware())
     this.app.use(router.routes())
     this.app.use(router.allowedMethods())
+
+    this.tokenManager = new TokenManager(this.tokenSecret)
   }
 
   async connect() {
@@ -59,7 +62,6 @@ export class SpspTokenServer {
       try {
         const authHeader = ctx.request.headers.authorization
         const slice = authHeader.split(' ')
-        console.log(slice)
         assert.equal(slice[0], 'Bearer', 'Must include SPSP Token as the Bearer auth token')
         const tokenBinary = Buffer.from(slice[1], 'base64')
         token = SpspToken.fromBytes(tokenBinary)
@@ -71,10 +73,10 @@ export class SpspTokenServer {
       }
 
       const tokenId = token.keyId.toString('hex')
-      // tokens[tokenId] = token
+      this.tokenManager.addToken(token)
 
       const { destinationAccount, sharedSecret } = this.streamServer.generateAddressAndSecret(tokenId)
-      this.log.info(`Generated ILP address ${destinationAccount} for token with id: ${token.keyId.toString('hex')}`)
+      this.log.info(`Generated ILP address ${destinationAccount} for token with id: ${tokenId}`)
       ctx.body = {
         destination_account: destinationAccount,
         shared_secret: sharedSecret.toString('base64')
@@ -87,34 +89,5 @@ export class SpspTokenServer {
       location: this.location,
       rootKey: this.tokenSecret
     })
-  }
-
-  private async handleConnection(conn: Connection): Promise<void> {
-    if (!conn.connectionTag) {
-      return conn.end()
-    }
-    this.log.debug(`Got connection for token: ${conn.connectionTag}`)
-
-    // Check that we have a token that corresponds to this connection
-    // const token = tokens[conn.connectionTag]
-    // if (!token) {
-    //   return conn.end()
-    // }
-
-    // Only necessary because of the stream server pushing money bug
-    // this should be connected and ready to go when the event is fired
-    await conn.connect()
-
-    // TODO should the server create the stream? or should the client create it and ask for a specific amount of money?
-    const stream = conn.createStream()
-    stream.on('outgoing_money', (amount: string) => {
-      this.log.debug(`Sent ${amount} to ${conn.destinationAccount} for token: ${conn.connectionTag}`)
-      // TODO adjust how much more the token can send
-    })
-
-    // TODO base the amount on the token max
-    stream.setSendMax(MAX_SEND_AMOUNT)
-    await stream.sendTotal(1000)
-    console.log('sent money')
   }
 }

@@ -14,7 +14,9 @@ async function run () {
   const token = server.generateToken()
 
   // The server, account-holder, and 3rd parties can all add caveats
-  token.addCaveat(new AmountCaveat(1000, new Date(), 60000))
+
+  // This one allows for 1000 units to be pulled every 5 seconds for 3 times starting now
+  token.addCaveat(new AmountCaveat(1000, new Date(), 5000, 3))
 
   // The account-holder would provide the token to a 3rd party service that is requesting money
   console.log(`Generated token: ${token.toBytes().toString('base64')}`)

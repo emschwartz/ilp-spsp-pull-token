@@ -140,10 +140,8 @@ export class SpspToken {
     const keyId = reader.readVarOctetString()
     const numCaveats = reader.readVarUIntBigNum().toNumber()
     const caveats: Serializable[] = []
-    console.log('num caveats', numCaveats)
     for (let i = 0; i < numCaveats; i++) {
       const type = parseInt(reader.readUInt8())
-      console.log('type', type)
       switch (type) {
         case AmountCaveat.typeId:
           caveats.push(AmountCaveat.readFrom(reader, false))
