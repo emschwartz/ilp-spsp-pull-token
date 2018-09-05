@@ -51,6 +51,8 @@ This server implements the [Simple Payment Setup Protocol (SPSP)](https://github
 - **Updating the Auth Token Mid-Connection** - Providing a way to update the auth token being used mid-stream would enable a user to continuously update the token to enable use cases like what Ben demoed in Laser Beer.
 - **Bundling vs Layering** - How many features should be bundled together in one protocol for retail payments over ILP, or should we think about the token authorization, SPSP, and the streaming receipt as three separate protocols?
 - **QR Code / NFC / Laser** - Implement various means of transmitting the auth token. (Note that with some of these, you could have the merchant communicate their ILP address so the token can be linked to it, but with others like QR codes that would be more difficult or impossible)
+- **Standardizing the Request for Token** - Merchants will want to request tokens for specific amounts, so it may be useful to standardize the flow or message format for that request.
+- **Revoking Tokens** - Users may want to revoke tokens that they've given out. This doesn't need to be standardized across the board, because it is just between the customer and their pull token provider, but it would be useful to implement something for this.
 
 ## Contributing
 
