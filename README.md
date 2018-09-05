@@ -38,6 +38,7 @@ This server implements the [Simple Payment Setup Protocol (SPSP)](https://github
 
 - Clone the repo
 - `npm install`
+- Run [moneyd](https://github.com/interledgerjs/moneyd) (can be in `local` mode)
 - `node index.js` (or `DEBUG=ilp-spsp*` to see more details)
 
 ## Futher Work
