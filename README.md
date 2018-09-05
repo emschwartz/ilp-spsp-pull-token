@@ -1,4 +1,4 @@
-# Pull Payments over ILP
+# Pull Payments over ILP/SPSP
 > The beginnings of a retail payment experience on Interledger
 
 ## Overview
@@ -29,6 +29,10 @@ This implementation allows tokens to be limited in the following ways:
 These caveats can be added by the token creator, and further limitations can be added by subsequent merchants or 3rd parties. All of the limitations are checked before the SPSP server pushes the money to the merchant.
 
 The method for adding caveats is inspired by [Macaroons](https://ai.google/research/pubs/pub41892).
+
+### Relationship with SPSP
+
+This server implements the [Simple Payment Setup Protocol (SPSP)](https://github.com/interledger/rfcs/blob/master/0009-simple-payment-setup-protocol/0009-simple-payment-setup-protocol.md), with one addition. The token is sent as a Bearer authorization token in the standard HTTP `Authorization` header. The server's response is a normal SPSP response, but when the client (in this case the merchant) connects, the server will push money to the client.
 
 ## Trying It Out
 
