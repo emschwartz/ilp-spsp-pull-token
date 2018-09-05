@@ -40,7 +40,7 @@ This server implements the [Simple Payment Setup Protocol (SPSP)](https://github
 - Clone the repo
 - `npm install`
 - Run [moneyd](https://github.com/interledgerjs/moneyd) (can be in `local` mode)
-- `node index.js` (or `DEBUG=ilp-spsp*` to see more details)
+- `npm start` (or `DEBUG=ilp-spsp* npm start` to see more details)
 
 ## Futher Work
 - **TLS Over ILP** - HTTPS is only used to exchange the shared secret and address. TLS over ILP would enable these payments to be made using only an ILP connection.
