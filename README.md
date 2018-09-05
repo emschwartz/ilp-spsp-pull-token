@@ -28,7 +28,7 @@ This implementation allows tokens to be limited in the following ways:
 
 These caveats can be added by the token creator, and further limitations can be added by subsequent merchants or 3rd parties. All of the limitations are checked before the SPSP server pushes the money to the merchant.
 
-The method for adding caveats is inspired by (Macaroons)[https://ai.google/research/pubs/pub41892].
+The method for adding caveats is inspired by [Macaroons](https://ai.google/research/pubs/pub41892).
 
 ## Trying It Out
 
