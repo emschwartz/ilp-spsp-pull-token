@@ -21,7 +21,6 @@
     "ilp-plugin": "^3.1.1",
     "ilp-protocol-stream": "^1.8.0",
     "koa": "^2.5.2",
-    "koa-bodyparser": "^4.2.1",
     "koa-router": "^7.4.0",
     "node-fetch": "^2.2.0",
     "oer-utils": "^3.0.1"

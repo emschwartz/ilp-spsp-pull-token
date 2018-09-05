@@ -2,11 +2,12 @@ import { createServer, Connection, Server as StreamServer } from 'ilp-protocol-s
 const createPlugin = require('ilp-plugin')
 import Koa = require('koa')
 import Router = require('koa-router')
-import bodyParser = require('koa-bodyparser')
 import { SpspToken, AmountCaveat, AddressCaveat } from './spsp-token'
+import { TokenManager } from './token-manager'
 import { randomBytes, createHmac } from 'crypto'
 import fetch from 'node-fetch'
 const createLogger = require('ilp-logger')
+import * as assert from 'assert'
 
 // TODO replace this with a more sensible default. This is VERY DANGEROUS
 const MAX_SEND_AMOUNT = 9999999999
@@ -38,8 +39,7 @@ export class SpspTokenServer {
     this.streamServer.on('connection', (conn: Connection) => this.handleConnection(conn))
     this.app = new Koa()
     const router = new Router()
-    router.post('/', this.middleware())
-    this.app.use(bodyParser({}))
+    router.get('/', this.middleware())
     this.app.use(router.routes())
     this.app.use(router.allowedMethods())
   }
@@ -57,8 +57,10 @@ export class SpspTokenServer {
     return async (ctx: Koa.Context) => {
       let token
       try {
-        const body = ctx.request.body! as any
-        const tokenBinary = Buffer.from(body.token, 'base64')
+        const authHeader = ctx.request.headers.authorization
+        const slice = authHeader.slice(' ')
+        assert.equal(slice[0], 'Bearer', 'Must include SPSP Token as the Bearer auth token')
+        const tokenBinary = Buffer.from(slice[1], 'base64')
         token = SpspToken.fromBytes(tokenBinary)
         if (!token.isValid(this.tokenSecret)) {
           return ctx.throw(401, 'Invalid token')

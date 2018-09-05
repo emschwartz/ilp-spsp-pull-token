@@ -10,19 +10,21 @@ async function run () {
   })
   await server.listen(3000)
 
+  // The server generates the original token
   const token = server.generateToken()
+
+  // The server, account-holder, and 3rd parties can all add caveats
   token.addCaveat(new AmountCaveat(1000, new Date(), 60000))
 
-  // The token is sent as a base64-encoded field in a JSON body
-  // TODO should we send the token as binary and skip the JSON?
-  const requestBody = JSON.stringify({
-    token: token.toBytes().toString('base64')
-  })
+  // The account-holder would provide the token to a 3rd party service that is requesting money
+  console.log(`Generated token: ${token.toBytes().toString('base64')}`)
 
-  const spspResponse = await fetch('http://localhost:3000', {
-    method: 'POST',
-    body: requestBody,
-    headers: { 'Content-Type': 'application/json' }
+  // The service requesting payment sends the token as the
+  // Authorization token for the SPSP endpoint
+  // and the server responds with a standard SPSP response
+  const spspResponse = await fetch(token.location, {
+    method: 'GET',
+    headers: { 'Authorization': `Bearer ${token.toBytes().toString('base64')}`}
   }).then(async (res: FetchResponse) => {
     if (res.ok) {
       return res.json()
@@ -31,6 +33,8 @@ async function run () {
     }
   })
 
+  // The service requesting money opens a STREAM connection
+  // and the server pushes money to it
   const clientConn = await createConnection({
     plugin: createPlugin(),
     destinationAccount: spspResponse.destination_account,
