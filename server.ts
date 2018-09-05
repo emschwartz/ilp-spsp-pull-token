@@ -58,7 +58,8 @@ export class SpspTokenServer {
       let token
       try {
         const authHeader = ctx.request.headers.authorization
-        const slice = authHeader.slice(' ')
+        const slice = authHeader.split(' ')
+        console.log(slice)
         assert.equal(slice[0], 'Bearer', 'Must include SPSP Token as the Bearer auth token')
         const tokenBinary = Buffer.from(slice[1], 'base64')
         token = SpspToken.fromBytes(tokenBinary)
