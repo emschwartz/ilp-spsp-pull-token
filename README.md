@@ -25,6 +25,7 @@ This implementation allows tokens to be limited in the following ways:
 - Amount of money the token can be used to withdraw
 - Expiration date
 - Tying the token to a specific merchant ILP address
+- Amount per time period for a given number of cycles (useful for subscriptions)
 
 These caveats can be added by the token creator, and further limitations can be added by subsequent merchants or 3rd parties. All of the limitations are checked before the SPSP server pushes the money to the merchant.
 
@@ -42,13 +43,13 @@ This server implements the [Simple Payment Setup Protocol (SPSP)](https://github
 - `node index.js` (or `DEBUG=ilp-spsp*` to see more details)
 
 ## Futher Work
-- TLS Over ILP - HTTPS is only used to exchange the shared secret and address. TLS over ILP would enable these payments to be made using only an ILP connection.
-- Data Over ILP - The SPSP spec still recommends returning metadata about the receiver in the SPSP response. Should this data be sent over ILP instead?
-- Streaming Receipts - See [interledger/rfcs#421](https://github.com/interledger/rfcs/issues/421). What public keys should we use to sign the receipts? What PKI should we leverage (CAs and X.509 certs, Handshake.org, or something else)?
-- Receipt Format - Should we use JSON-LD and a schema.org schema for the receipt? Is having a standardized format for the receipt contents important for this use case?
-- Updating the Auth Token Mid-Connection - Providing a way to update the auth token being used mid-stream would enable a user to continuously update the token to enable use cases like what Ben demoed in Laser Beer.
-- Bundling vs Layering - How many features should be bundled together in one protocol for retail payments over ILP, or should we think about the token authorization, SPSP, and the streaming receipt as three separate protocols?
-- QR Code / NFC / Laser - Implement various means of transmitting the auth token.
+- **TLS Over ILP** - HTTPS is only used to exchange the shared secret and address. TLS over ILP would enable these payments to be made using only an ILP connection.
+- **Data Over ILP** - The SPSP spec still recommends returning metadata about the receiver in the SPSP response. Should this data be sent over ILP instead?
+- **Streaming Receipts** - See [interledger/rfcs#421](https://github.com/interledger/rfcs/issues/421). What public keys should we use to sign the receipts? What PKI should we leverage (CAs and X.509 certs, Handshake.org, or something else)?
+- **Receipt Format** - Should we use JSON-LD and a schema.org schema for the receipt? Is having a standardized format for the receipt contents important for this use case?
+- **Updating the Auth Token Mid-Connection** - Providing a way to update the auth token being used mid-stream would enable a user to continuously update the token to enable use cases like what Ben demoed in Laser Beer.
+- **Bundling vs Layering** - How many features should be bundled together in one protocol for retail payments over ILP, or should we think about the token authorization, SPSP, and the streaming receipt as three separate protocols?
+- **QR Code / NFC / Laser** - Implement various means of transmitting the auth token.
 
 ## Contributing
 
